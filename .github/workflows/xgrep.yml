@@ -1,0 +1,41 @@
+# .github/workflows/xgrep.yml
+# Scan source code for secrets and vulnerable code with xgrep, publish the
+# results to GitHub code scanning (Security tab and pull request annotations),
+# and fail the pull request on findings.
+# See https://mondoo.com/docs/xgrep/integrations/ci/ for additional usage information.
+
+name: xgrep
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write # required to upload SARIF (when Code Security is enabled)
+
+jobs:
+  scan:
+    name: xgrep SAST
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for diff-aware scanning on pull requests
+      - name: Run xgrep
+        uses: mondoohq/actions/xgrep@v13.2.0
+        with:
+          path: .
+          rules: /nonexistent/rules
+          output-file: results.sarif
+          # Fail the job on findings at or above this severity: error, warning,
+          # or off (report only). The SARIF upload below still runs on failure.
+          fail-on: error
+      - name: Upload SARIF to code scanning
+        if: always() # don't lose findings if the scan step fails the job
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: xgrep # must match the action's sarif-category input
